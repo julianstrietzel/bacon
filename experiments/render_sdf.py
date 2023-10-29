@@ -174,19 +174,27 @@ def generate_mesh_adaptive(model, model_name):
 
 
 def export_meshes(adaptive=True):
-    bacon_ckpts = ['../trained_models/dragon.pth',
-                   '../trained_models/armadillo.pth',
-                   '../trained_models/lucy.pth',
-                   '../trained_models/thai.pth']
 
-    bacon_names = ['bacon_dragon',
-                   'bacon_armadillo',
-                   'bacon_lucy',
-                   'bacon_thai']
+    if model_type == "ff":
+        print("Exporting Bacon")
+        names = [os.fsdecode(file) for file in os.listdir("../ff_trained_models")]
+        ckpts = [str(os.path.join(os.path("../ff_trained_models"), os.fsdecode(file))) for file in os.listdir("../ff_trained_models")]
 
-    print('Exporting BACON')
-    for ckpt, name in tqdm(zip(bacon_ckpts, bacon_names), total=len(bacon_ckpts)):
-        export_model(ckpt, name, model_type='bacon', output_layers=output_layers, adaptive=adaptive)
+    else:
+        print('Exporting BACON')
+        ckpts = ['../trained_models/dragon.pth',
+                       '../trained_models/armadillo.pth',
+                       '../trained_models/lucy.pth',
+                       '../trained_models/thai.pth']
+
+        names = ['bacon_dragon',
+                       'bacon_armadillo',
+                       'bacon_lucy',
+                       'bacon_thai']
+    for ckpt, name in tqdm(zip(ckpts, names), total=len(ckpts)):
+        export_model(ckpt, name, model_type=model_type, output_layers=output_layers, adaptive=adaptive)
+
+
 
 
 def init_multiscale_mc():
@@ -200,10 +208,12 @@ def init_multiscale_mc():
 
 
 if __name__ == '__main__':
-    global N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs
+    global N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type
+    model_type = "ff"
     N = 512
     output_layers = [2, 4, 6, 8]
     num_outputs = len(output_layers)
+
 
     subdiv_hashes, lowest_res, coords_list, sdf_out_list = init_multiscale_mc()
 
