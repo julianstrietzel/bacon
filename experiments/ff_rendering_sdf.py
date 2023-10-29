@@ -13,7 +13,7 @@ import dataio
 import math
 
 
-def export_model(ckpt_path, model_name, N=512, model_type='bacon', hidden_layers=8,
+def export_model(ckpt_path, model_name, N=512, model_type='ff', hidden_layers=8,
                  hidden_size=256, output_layers=[1, 2, 4, 8],
                  return_sdf=False, adaptive=True):
 
@@ -124,7 +124,7 @@ def compute_one_scale(model, layer_ind, render_coords, sdf_values, hash_ind):
     bsize = int(128 ** 2)
     for i in range(int(len(render_coords) / bsize)+1):
         coords = render_coords[i * bsize:(i + 1) * bsize, :]
-        out = model({'coords': coords}, specified_layers=output_layers[layer_ind])['model_out']
+        out = model({'coords': coords})['model_out']
         sdf_values[hash_ind[i * bsize:(i + 1) * bsize]] = out[0]
 
 
@@ -133,15 +133,14 @@ def compute_one_scale_adaptive(model, layer_ind, render_coords, sdf_values, hash
     bsize = int(128 ** 2)
     for i in range(int(len(render_coords) / bsize)+1):
         coords = render_coords[i * bsize:(i + 1) * bsize, :]
-        out = model({'coords': coords}, specified_layers=2, get_feature=True)['model_out']
+        out = model({'coords': coords})['model_out']
         sdf = out[0][0]
         if output_layers[layer_ind] > 2:
             feature = out[0][1]
             near_surf = (sdf.abs() < threshold).squeeze()
             coords_surf = coords[near_surf]
             feature_surf = feature[near_surf]
-            out = model({'coords': coords_surf}, specified_layers=output_layers[layer_ind],
-                        continue_layer=2, continue_feature=feature_surf)['model_out']
+            out = model({'coords': coords_surf})['model_out']
             sdf_near = out[0]
             sdf[near_surf] = sdf_near
 
@@ -221,7 +220,7 @@ def init_multiscale_mc():
 
 if __name__ == '__main__':
     global N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type
-    model_type = "bacon"
+    model_type = "ff"
     N = 512
     output_layers = [2, 4, 6, 8]
     num_outputs = len(output_layers)
