@@ -22,15 +22,27 @@ def export_model(ckpt_path, model_name, N=512, model_type='bacon', hidden_layers
     max_frequency = 3*(32,)
 
     # load model
-    with utils.HiddenPrint():
-        model = modules.MultiscaleBACON(3, hidden_size, 1,
-                                        hidden_layers=hidden_layers,
-                                        bias=True,
-                                        frequency=max_frequency,
-                                        quantization_interval=np.pi,
-                                        is_sdf=True,
-                                        output_layers=output_layers,
-                                        reuse_filters=True)
+    if model_type == "bacon":
+        with utils.HiddenPrint():
+            model = modules.MultiscaleBACON(3, hidden_size, 1,
+                                            hidden_layers=hidden_layers,
+                                            bias=True,
+                                            frequency=max_frequency,
+                                            quantization_interval=np.pi,
+                                            is_sdf=True,
+                                            output_layers=output_layers,
+                                            reuse_filters=True)
+    elif model_type == "ff":
+        model = modules.CoordinateNet(nl='relu',
+                                      in_features=3,
+                                      out_features=1,
+                                      num_hidden_layers=7,
+                                      hidden_features=256,
+                                      is_sdf=True,
+                                      pe_scale=8.0,
+                                      use_sigmoid=False)
+    else:
+        raise NotImplementedError("ff and bacon implemented only so far")
 
     ckpt = torch.load(ckpt_path)
     model.load_state_dict(ckpt)
@@ -176,7 +188,7 @@ def generate_mesh_adaptive(model, model_name):
 def export_meshes(adaptive=True):
 
     if model_type == "ff":
-        print("Exporting Bacon")
+        print("Exporting ff")
         names = [os.fsdecode(file) for file in os.listdir("../ff_trained_models")]
         ckpts = [str(os.path.join("../ff_trained_models", os.fsdecode(file))) for file in os.listdir("../ff_trained_models")]
 
