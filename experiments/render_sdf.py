@@ -178,7 +178,7 @@ def export_meshes(adaptive=True):
     if model_type == "ff":
         print("Exporting Bacon")
         names = [os.fsdecode(file) for file in os.listdir("../ff_trained_models")]
-        ckpts = [str(os.path.join(os.path.path("../ff_trained_models"), os.fsdecode(file))) for file in os.listdir("../ff_trained_models")]
+        ckpts = [str(os.path.join("../ff_trained_models", os.fsdecode(file))) for file in os.listdir("../ff_trained_models")]
 
     else:
         print('Exporting BACON')
