@@ -14,6 +14,9 @@ from pykdtree.kdtree import KDTree
 import errno
 import urllib.request
 
+import trimesh
+import igl
+
 
 def get_mgrid(sidelen, dim=2, centered=True, include_end=False):
     '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.'''
@@ -630,9 +633,10 @@ class Implicit6DMultiviewDataWrapper(torch.utils.data.Dataset):
 
 class MeshSDF(Dataset):
     ''' convert point cloud to SDF '''
+    
 
     def __init__(self, pointcloud_path, num_samples=30**3,
-                 coarse_scale=1e-1, fine_scale=1e-3):
+                 coarse_scale=1e-1, fine_scale=1e-3, udf = False):
         super().__init__()
         self.num_samples = num_samples
         self.pointcloud_path = pointcloud_path
@@ -640,6 +644,9 @@ class MeshSDF(Dataset):
         self.fine_scale = fine_scale
 
         self.load_mesh(pointcloud_path)
+        self.udf = udf
+        if udf == True:
+            self.mesh = trimesh.load(pointcloud_path[:-3] + "obj", force='mesh')
 
     def __len__(self):
         return 10000  # arbitrary
@@ -665,22 +672,34 @@ class MeshSDF(Dataset):
         return coords
 
     def sample_surface(self):
+        
+        
         idx = np.random.randint(0, self.v.shape[0], self.num_samples)
         points = self.v[idx]
         points[::2] += np.random.laplace(scale=self.coarse_scale, size=(points.shape[0]//2, points.shape[-1]))
         points[1::2] += np.random.laplace(scale=self.fine_scale, size=(points.shape[0]//2, points.shape[-1]))
-
+        
         # wrap around any points that are sampled out of bounds
         points[points > 0.5] -= 1
         points[points < -0.5] += 1
+        
+        if self.udf == False:
+            # use KDTree to get distance to surface and estimate the normal
+            print('calculating sdf')
+            sdf, idx = self.kd_tree.query(points, k=3)
+            avg_normal = np.mean(self.n[idx], axis=1)
+            sdf = np.sum((points - self.v[idx][:, 0]) * avg_normal, axis=-1)
+            
+            df = sdf[..., None]
 
-        # use KDTree to get distance to surface and estimate the normal
-        sdf, idx = self.kd_tree.query(points, k=3)
-        avg_normal = np.mean(self.n[idx], axis=1)
-        sdf = np.sum((points - self.v[idx][:, 0]) * avg_normal, axis=-1)
-        sdf = sdf[..., None]
+        
+        else:
+            print('calculating udf')
+            df = np.abs(igl.signed_distance(points, self.mesh.vertices, self.mesh.faces)[0])
+            df = df[..., None]
+        
 
-        return points, sdf
+        return points, df
 
     def __getitem__(self, idx):
         coords, sdf = self.sample_surface()

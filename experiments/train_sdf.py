@@ -126,10 +126,13 @@ def train():
 def init_dataloader(opt):
     ''' load sdf dataloader via eikonal equation or fitting sdf directly '''
 
+    udf = False 
+    if opt.experiment_name == "ff_sponza": #TODO add this also to the config file
+        udf = True
     sdf_dataset = dataio.MeshSDF(opt.point_cloud_path,
                                  num_samples=opt.num_pts_on,
                                  coarse_scale=opt.coarse_scale,
-                                 fine_scale=opt.fine_scale)
+                                 fine_scale=opt.fine_scale, udf)
 
     dataloader = DataLoader(sdf_dataset, shuffle=True,
                             batch_size=1, pin_memory=True,
