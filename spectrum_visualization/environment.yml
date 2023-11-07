@@ -10,14 +10,14 @@ dependencies:
   - torchvision
   - pip
   - pip:
-    - argparse==1.4.0
-    - configargparse==1.5.3
-    - gdown==4.2.0
-    - matplotlib==3.4.3
-    - pymcubes==0.1.2
-    - scikit-image
-    - scipy
-    - tqdm
-    - trimesh
-    - mrcfile
-    - pykdtree
+      - argparse==1.4.0
+      - configargparse==1.5.3
+      - gdown==4.2.0
+      - matplotlib==3.4.3
+      - pymcubes==0.1.2
+      - scikit-image
+      - scipy
+      - tqdm
+      - trimesh
+      - mrcfile
+      - pykdtree

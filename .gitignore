@@ -1,0 +1,8 @@
+/logs/
+/resulted_meshes/
+/.idea/*
+/3d_objects/
+/data/
+/logs_persis/
+/experiments/outputs/
+.DS_Store

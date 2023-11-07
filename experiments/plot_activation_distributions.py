@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -98,7 +98,6 @@ class FourierNet(MFNBase):
 
 
 def plot_initialization(use_original=False, plot_fit=True):
-
     f = 256
     nl = 8
 
@@ -116,7 +115,7 @@ def plot_initialization(use_original=False, plot_fit=True):
     out = model.filters[0](coords)
     activations.append(out.flatten())
     for i in range(1, len(model.filters)):
-        activations.append(model.linear[i-1](out).flatten())
+        activations.append(model.linear[i - 1](out).flatten())
         out = model.filters[i](coords) * model.linear[i - 1](out)
         activations.append(out.flatten())
 
@@ -126,10 +125,9 @@ def plot_initialization(use_original=False, plot_fit=True):
     gs.update(left=0.05, right=1.0, top=0.95, bottom=0.05)
 
     for idx, act in enumerate(activations):
-
         if idx > 2:
             # plt.subplot(2, len(activations)//2 + 1, idx+2)
-            fig.add_subplot(gs[(idx+1)//4, (idx+1) % 4])
+            fig.add_subplot(gs[(idx + 1) // 4, (idx + 1) % 4])
         else:
             fig.add_subplot(gs[0, idx])
 
@@ -137,33 +135,44 @@ def plot_initialization(use_original=False, plot_fit=True):
         plt.hist(act.detach().cpu().numpy(), 50, density=True)
 
         if idx == 0:
-            plt.title('Input')
+            plt.title("Input")
             plt.xlim(-0.5, 0.5)
 
         if idx == 1:
             x = np.linspace(-120, 120, 1000)
 
             if plot_fit:
-                plt.plot(x, 2/(2*np.pi*f/(nl+1)) * np.log(np.pi*f/(nl+1)/(np.minimum(abs(2*x), np.pi*f/(nl+1)))), 'r')
+                plt.plot(
+                    x,
+                    2
+                    / (2 * np.pi * f / (nl + 1))
+                    * np.log(
+                        np.pi
+                        * f
+                        / (nl + 1)
+                        / (np.minimum(abs(2 * x), np.pi * f / (nl + 1)))
+                    ),
+                    "r",
+                )
             plt.xlim(-120, 120)
-            plt.title('Before Sine')
+            plt.title("Before Sine")
 
         if idx == 2:
             x = np.linspace(-1, 1, 1000)
 
             if plot_fit:
                 with warnings.catch_warnings():
-                    warnings.simplefilter('ignore')
-                    plt.plot(x, 1/np.pi * 1 / (np.sqrt(1 - x**2)), 'r')
+                    warnings.simplefilter("ignore")
+                    plt.plot(x, 1 / np.pi * 1 / (np.sqrt(1 - x**2)), "r")
             plt.xlim(-1, 1)
-            plt.title('After Sine')
+            plt.title("After Sine")
 
         if idx % 2 == 1 and idx > 2:
             x = np.linspace(-4, 4, 1000)
             if plot_fit:
-                plt.plot(x, 1 / np.sqrt(2*np.pi) * np.exp(-x**2/2), 'r')
+                plt.plot(x, 1 / np.sqrt(2 * np.pi) * np.exp(-(x**2) / 2), "r")
             plt.xlim(-4, 4)
-            plt.title('After Linear')
+            plt.title("After Linear")
 
         if idx % 2 == 0 and idx > 2:
             # this is the product of a standard normal and
@@ -177,22 +186,33 @@ def plot_initialization(use_original=False, plot_fit=True):
             out = np.zeros_like(zs)
             dx = x[1] - x[0]
             for idx, z in enumerate(zs):
-                zdx2 = (z/x)**2
+                zdx2 = (z / x) ** 2
                 with warnings.catch_warnings():
-                    warnings.simplefilter('ignore')
-                    tmp = 1 / np.sqrt(2*np.pi) * np.exp(-x**2/2) * 1/np.pi * 1/np.sqrt(1 - zdx2) * 1/abs(x) * dx
+                    warnings.simplefilter("ignore")
+                    tmp = (
+                        1
+                        / np.sqrt(2 * np.pi)
+                        * np.exp(-(x**2) / 2)
+                        * 1
+                        / np.pi
+                        * 1
+                        / np.sqrt(1 - zdx2)
+                        * 1
+                        / abs(x)
+                        * dx
+                    )
                 tmp[np.isnan(tmp)] = 0
                 out[idx] = tmp.sum()
 
             if plot_fit:
-                plt.plot(zs, out, 'r')
-            plt.title('After Product')
+                plt.plot(zs, out, "r")
+            plt.title("After Product")
             plt.xlim(-4, 4)
 
         make_square_axes(plt.gca(), 0.5)
     plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     plot_initialization(use_original=False, plot_fit=True)
     plot_initialization(use_original=True, plot_fit=False)

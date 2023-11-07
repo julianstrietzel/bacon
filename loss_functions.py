@@ -1,4 +1,5 @@
 import torch
+
 import forward_models
 
 
@@ -22,9 +23,9 @@ def image_mse(model_output, gt):
 
 def multiscale_image_mse(model_output, gt, use_resized=False):
     if use_resized:
-        loss = [(out - gt_img)**2 for out, gt_img in zip(model_output['model_out']['output'], gt['img'])]
+        loss = [(out - gt_img) ** 2 for out, gt_img in zip(model_output['model_out']['output'], gt['img'])]
     else:
-        loss = [(out - gt['img'])**2 for out in model_output['model_out']['output']]
+        loss = [(out - gt['img']) ** 2 for out in model_output['model_out']['output']]
 
     loss = torch.stack(loss).mean()
 
@@ -62,16 +63,16 @@ def multiscale_radiance_loss(model_outputs, gt, use_resized=False, weight=1.0,
 
         # Loss
         if tomo_loss is None:
-            tomo_loss = (pred_pixel_samples - target_pixel_samples)**2
+            tomo_loss = (pred_pixel_samples - target_pixel_samples) ** 2
         else:
-            tomo_loss += (pred_pixel_samples - target_pixel_samples)**2
+            tomo_loss += (pred_pixel_samples - target_pixel_samples) ** 2
 
         if regularize_sigma:
             tau = torch.nn.functional.softplus(pred_sigma - 1)
             if sigma_reg is None:
-                sigma_reg = (torch.log(1 + tau**2 / reg_c))
+                sigma_reg = (torch.log(1 + tau ** 2 / reg_c))
             else:
-                sigma_reg += (torch.log(1 + tau**2 / reg_c))
+                sigma_reg += (torch.log(1 + tau ** 2 / reg_c))
 
     loss = {'tomo_rad_loss': weight * tomo_loss.mean()}
 
@@ -95,11 +96,11 @@ def radiance_sigma_rgb_loss(model_outputs, gt, regularize_sigma=False,
     target_pixel_samples = gt['pixel_samples'][..., :3]  # rgba -> rgb
 
     # Loss
-    tomo_loss = (pred_pixel_samples - target_pixel_samples)**2
+    tomo_loss = (pred_pixel_samples - target_pixel_samples) ** 2
 
     if regularize_sigma:
         tau = torch.nn.functional.softplus(pred_sigma - 1)
-        sigma_reg = (torch.log(1 + tau**2 / reg_c))
+        sigma_reg = (torch.log(1 + tau ** 2 / reg_c))
 
     loss = {'tomo_rad_loss': tomo_loss.mean()}
 
@@ -128,11 +129,11 @@ def overfit_sdf_loss_total(model_output, gt, is_multiscale, lambda_grad=1e-3,
 
     pred_sdf_ = pred_sdf[0] if is_multiscale else pred_sdf
 
-    mse_ = (gt_sdf - pred_sdf_)**2
+    mse_ = (gt_sdf - pred_sdf_) ** 2
 
     if is_multiscale:
         for pred_sdf_ in pred_sdf[1:]:
-            mse_ += (gt_sdf - pred_sdf_)**2
+            mse_ += (gt_sdf - pred_sdf_) ** 2
 
     mse_ = (mse_ / len(pred_sdf))
     mse_[:, ::2] *= coarse_loss_weight

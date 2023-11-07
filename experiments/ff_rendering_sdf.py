@@ -1,7 +1,9 @@
 import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+os.environ["CUDA_VISIBLE_DEVICES"] = str(1)
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import utils
 import modules
 import torch
@@ -11,36 +13,60 @@ import mcubes
 import trimesh
 import dataio
 import math
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_type", type=str, default="ff", help="ff or bacon")
+parser.add_argument(
+    "--exp_name", type=str, default=None, help="name of experiment to filter "
+)
+parser.add_argument("--N", type=int, default=512, help="resolution of mesh")
+parser.add_argument(
+    "--output_layers", nargs="+", type=int, default=[2, 4, 6, 8], help="output layers"
+)
 
 
-def export_model(ckpt_path, model_name, N=512, model_type='ff', hidden_layers=8,
-                 hidden_size=256, output_layers=[1, 2, 4, 8],
-                 return_sdf=False, adaptive=True):
-
+def export_model(
+    ckpt_path,
+    model_name,
+    N=512,
+    model_type="ff",
+    hidden_layers=8,
+    hidden_size=256,
+    output_layers=[1, 2, 4, 8],
+    return_sdf=False,
+    adaptive=True,
+):
     # the network has 4 output levels of detail
     num_outputs = len(output_layers)
-    max_frequency = 3*(32,)
+    max_frequency = 3 * (32,)
 
     # load model
     if model_type == "bacon":
         with utils.HiddenPrint():
-            model = modules.MultiscaleBACON(3, hidden_size, 1,
-                                            hidden_layers=hidden_layers,
-                                            bias=True,
-                                            frequency=max_frequency,
-                                            quantization_interval=np.pi,
-                                            is_sdf=True,
-                                            output_layers=output_layers,
-                                            reuse_filters=True)
+            model = modules.MultiscaleBACON(
+                3,
+                hidden_size,
+                1,
+                hidden_layers=hidden_layers,
+                bias=True,
+                frequency=max_frequency,
+                quantization_interval=np.pi,
+                is_sdf=True,
+                output_layers=output_layers,
+                reuse_filters=True,
+            )
     elif model_type == "ff":
-        model = modules.CoordinateNet(nl='relu',
-                                      in_features=3,
-                                      out_features=1,
-                                      num_hidden_layers=7,
-                                      hidden_features=256,
-                                      is_sdf=True,
-                                      pe_scale=8.0,
-                                      use_sigmoid=False)
+        model = modules.CoordinateNet(
+            nl="relu",
+            in_features=3,
+            out_features=1,
+            num_hidden_layers=7,
+            hidden_features=256,
+            is_sdf=True,
+            pe_scale=8.0,
+            use_sigmoid=False,
+        )
     else:
         raise NotImplementedError("ff and bacon implemented only so far")
 
@@ -57,12 +83,11 @@ def export_model(ckpt_path, model_name, N=512, model_type='ff', hidden_layers=8,
         generate_mesh_adaptive(model, model_name)
 
 
-def generate_mesh(model, N, return_sdf=False, num_outputs=4, model_name='model'):
-
+def generate_mesh(model, N, return_sdf=False, num_outputs=4, model_name="model"):
     # write output
     x = torch.linspace(-0.5, 0.5, N)
     if return_sdf:
-        x = torch.arange(-N//2, N//2) / N
+        x = torch.arange(-N // 2, N // 2) / N
         x = x.float()
     x, y, z = torch.meshgrid(x, x, x)
     render_coords = torch.stack((x.flatten(), y.flatten(), z.flatten()), dim=-1).cuda()
@@ -71,14 +96,16 @@ def generate_mesh(model, N, return_sdf=False, num_outputs=4, model_name='model')
     # render in a batched fashion to save memory
     bsize = int(128**2)
     for i in tqdm(range(int(N**3 / bsize))):
-        coords = render_coords[i*bsize:(i+1)*bsize, :]
-        out = model({'coords': coords})['model_out']
+        coords = render_coords[i * bsize : (i + 1) * bsize, :]
+        out = model({"coords": coords})["model_out"]
 
         if not isinstance(out, list):
-            out = [out, ]
+            out = [
+                out,
+            ]
 
         for idx, sdf in enumerate(out):
-            sdf_values[idx][i*bsize:(i+1)*bsize] = sdf.detach().cpu().numpy()
+            sdf_values[idx][i * bsize : (i + 1) * bsize] = sdf.detach().cpu().numpy()
 
     if return_sdf:
         return [sdf.reshape(N, N, N) for sdf in sdf_values]
@@ -87,10 +114,10 @@ def generate_mesh(model, N, return_sdf=False, num_outputs=4, model_name='model')
         sdf = sdf.reshape(N, N, N)
         vertices, triangles = mcubes.marching_cubes(-sdf, 0)
         mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
-        mesh.vertices = (mesh.vertices / N - 0.5) + 0.5/N
+        mesh.vertices = (mesh.vertices / N - 0.5) + 0.5 / N
 
-        os.makedirs('./outputs/meshes',  exist_ok=True)
-        mesh.export(f"./outputs/meshes/{model_name}_{idx+1}.obj")
+        os.makedirs("./outputs/meshes", exist_ok=True)
+        mesh.export(f"./outputs/meshes/{model_name}_{idx + 1}.obj")
 
 
 def prepare_multi_scale(res, num_scales):
@@ -107,12 +134,16 @@ def prepare_multi_scale(res, num_scales):
         flat_ind_next = coord2ind(xyz_next, next_res)  # (N^3)*8
         return flat_ind_next
 
-    lowest_res = res / 2**(num_scales-1)
+    lowest_res = res / 2 ** (num_scales - 1)
     subdiv_hash_list = []
 
-    for i in range(num_scales-1):
-        curr_res = int(lowest_res*2**i)
-        xyz_ind = torch.from_numpy(np.stack(np.mgrid[:curr_res, :curr_res, :curr_res], axis=-1)).view(-1, 3)  # (N^3)x3
+    for i in range(num_scales - 1):
+        curr_res = int(lowest_res * 2**i)
+        xyz_ind = torch.from_numpy(
+            np.stack(np.mgrid[:curr_res, :curr_res, :curr_res], axis=-1)
+        ).view(
+            -1, 3
+        )  # (N^3)x3
         subdiv_hash = subdiv_index(xyz_ind, curr_res * 2)
         subdiv_hash_list.append(subdiv_hash.cuda().long())
     return subdiv_hash_list
@@ -120,31 +151,33 @@ def prepare_multi_scale(res, num_scales):
 
 # multi-scale marching cubes
 def compute_one_scale(model, layer_ind, render_coords, sdf_values, hash_ind):
-    assert(len(render_coords) == len(hash_ind))
-    bsize = int(128 ** 2)
-    for i in range(int(len(render_coords) / bsize)+1):
-        coords = render_coords[i * bsize:(i + 1) * bsize, :]
-        out = model({'coords': coords})['model_out']
-        sdf_values[hash_ind[i * bsize:(i + 1) * bsize]] = out[0]
+    assert len(render_coords) == len(hash_ind)
+    bsize = int(128**2)
+    for i in range(int(len(render_coords) / bsize) + 1):
+        coords = render_coords[i * bsize : (i + 1) * bsize, :]
+        out = [model({"coords": coords})["model_out"]]
+        sdf_values[hash_ind[i * bsize : (i + 1) * bsize]] = out[0]
 
 
-def compute_one_scale_adaptive(model, layer_ind, render_coords, sdf_values, hash_ind, threshold=0.003):
-    assert(len(render_coords) == len(hash_ind))
-    bsize = int(128 ** 2)
-    for i in range(int(len(render_coords) / bsize)+1):
-        coords = render_coords[i * bsize:(i + 1) * bsize, :]
-        out = model({'coords': coords})['model_out']
+def compute_one_scale_adaptive(
+    model, layer_ind, render_coords, sdf_values, hash_ind, threshold=0.003
+):
+    assert len(render_coords) == len(hash_ind)
+    bsize = int(128**2)
+    for i in range(int(len(render_coords) / bsize) + 1):
+        coords = render_coords[i * bsize : (i + 1) * bsize, :]
+        out = [model({"coords": coords})["model_out"]]
         sdf = out[0][0]
-        if output_layers[layer_ind] > 2:
+        if output_layers[layer_ind] > 2 and False:
             feature = out[0][1]
             near_surf = (sdf.abs() < threshold).squeeze()
             coords_surf = coords[near_surf]
             feature_surf = feature[near_surf]
-            out = model({'coords': coords_surf})['model_out']
+            out = [model({"coords": coords_surf})["model_out"]]
             sdf_near = out[0]
             sdf[near_surf] = sdf_near
 
-        sdf_values[hash_ind[i * bsize:(i + 1) * bsize]] = sdf
+        sdf_values[hash_ind[i * bsize : (i + 1) * bsize]] = sdf
 
 
 def generate_mesh_adaptive(model, model_name):
@@ -153,82 +186,109 @@ def generate_mesh_adaptive(model, model_name):
         compute_one_scale(model, 0, coords_list[0], sdf_out_list[0], subdiv_hashes[0])
 
         for i in range(1, num_outputs):
-            curr_res = int(lowest_res*2**(i-1))
+            curr_res = int(lowest_res * 2 ** (i - 1))
             pixel_len = 1 / curr_res
-            threshold = (math.sqrt(2)*pixel_len*0.5)*2
-            sdf_prev = sdf_out_list[i-1]
+            threshold = (math.sqrt(2) * pixel_len * 0.5) * 2
+            sdf_prev = sdf_out_list[i - 1]
             sdf_curr = sdf_out_list[i]
             hash_curr = subdiv_hashes[i]
             coords_curr = coords_list[i]
             near_surf_prev = (sdf_prev.abs() <= threshold).squeeze(-1)
 
             # empty space
-            sdf_curr[hash_curr[~near_surf_prev]] = sdf_prev[~near_surf_prev].unsqueeze(-1)
+            sdf_curr[hash_curr[~near_surf_prev]] = sdf_prev[~near_surf_prev].unsqueeze(
+                -1
+            )
 
             # non-empty space
             non_empty_ind = hash_curr[near_surf_prev].flatten()
 
-            if i == num_outputs-1:
-                compute_one_scale_adaptive(model, i, coords_curr[non_empty_ind], sdf_curr,
-                                           non_empty_ind, threshold=pixel_len*0.5*2.)
+            if i == num_outputs - 1:
+                compute_one_scale_adaptive(
+                    model,
+                    i,
+                    coords_curr[non_empty_ind],
+                    sdf_curr,
+                    non_empty_ind,
+                    threshold=pixel_len * 0.5 * 2.0,
+                )
             else:
-                compute_one_scale(model, i, coords_curr[non_empty_ind], sdf_curr, non_empty_ind)
+                compute_one_scale(
+                    model, i, coords_curr[non_empty_ind], sdf_curr, non_empty_ind
+                )
 
         # run marching cubes
         sdf = sdf_curr.reshape(N, N, N).detach().cpu().numpy()
         vertices, triangles = mcubes.marching_cubes(-sdf, 0)
         mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
-        mesh.vertices = (mesh.vertices / N - 0.5) + 0.5/N
+        mesh.vertices = (mesh.vertices / N - 0.5) + 0.5 / N
 
-        os.makedirs('./outputs/meshes',  exist_ok=True)
+        os.makedirs("./outputs/meshes", exist_ok=True)
         mesh.export(f"./outputs/meshes/{model_name}.obj")
 
 
 def export_meshes(adaptive=True):
-
     if model_type == "ff":
         print("Exporting ff")
         names = [os.fsdecode(file) for file in os.listdir("../ff_trained_models")]
-        ckpts = [str(os.path.join("../ff_trained_models", os.fsdecode(file))) for file in os.listdir("../ff_trained_models")]
-
+        if exp_name:
+            names = list(filter(lambda x: exp_name in x, names))
+        print("Exporting ff with names: ", names)
+        ckpts = [
+            str(os.path.join("../ff_trained_models", os.fsdecode(name)))
+            for name in names
+        ]
     else:
-        print('Exporting BACON')
-        ckpts = ['../trained_models/dragon.pth',
-                       '../trained_models/armadillo.pth',
-                       '../trained_models/lucy.pth',
-                       '../trained_models/thai.pth']
+        print("Exporting BACON")
+        ckpts = [
+            "../trained_models/dragon.pth",
+            "../trained_models/armadillo.pth",
+            "../trained_models/lucy.pth",
+            "../trained_models/thai.pth",
+        ]
 
-        names = ['bacon_dragon',
-                       'bacon_armadillo',
-                       'bacon_lucy',
-                       'bacon_thai']
+        names = ["bacon_dragon", "bacon_armadillo", "bacon_lucy", "bacon_thai"]
     for ckpt, name in tqdm(zip(ckpts, names), total=len(ckpts)):
-        export_model(ckpt, name, model_type=model_type, output_layers=output_layers, adaptive=adaptive)
-
-
+        export_model(
+            ckpt,
+            name,
+            model_type=model_type,
+            output_layers=output_layers,
+            adaptive=adaptive,
+        )
 
 
 def init_multiscale_mc():
     subdiv_hashes = prepare_multi_scale(N, len(output_layers))  # (N^3)*8
-    subdiv_hashes = [torch.arange((N // 8) ** 3).cuda().long(), ] + subdiv_hashes
-    lowest_res = N // 2**(len(output_layers)-1)
-    coords_list = [dataio.get_mgrid(lowest_res*(2**i), dim=3).cuda() for i in range(len(output_layers))]  # (N^3)*3
-    sdf_out_list = [torch.zeros(((lowest_res*(2**i))**3), 1).cuda() for i in range(len(output_layers))]  # (N^3)
+    subdiv_hashes = [
+        torch.arange((N // 8) ** 3).cuda().long(),
+    ] + subdiv_hashes
+    lowest_res = N // 2 ** (len(output_layers) - 1)
+    coords_list = [
+        dataio.get_mgrid(lowest_res * (2**i), dim=3).cuda()
+        for i in range(len(output_layers))
+    ]  # (N^3)*3
+    sdf_out_list = [
+        torch.zeros(((lowest_res * (2**i)) ** 3), 1).cuda()
+        for i in range(len(output_layers))
+    ]  # (N^3)
 
     return subdiv_hashes, lowest_res, coords_list, sdf_out_list
 
 
-if __name__ == '__main__':
-    global N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type
-    model_type = "ff"
-    N = 512
-    output_layers = [2, 4, 6, 8]
+if __name__ == "__main__":
+    global exp_name, N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type
+    # get arguments from arguments parser
+    p = parser.parse_args()
+    model_type = p.model_type
+    exp_name = p.exp_name
+    N = p.N
+    output_layers = p.output_layers
     num_outputs = len(output_layers)
-
 
     subdiv_hashes, lowest_res, coords_list, sdf_out_list = init_multiscale_mc()
 
     # export meshes, use adaptive SDF evaluation or not
     # setting adaptive=False will output meshes at all resolutions
     # while adaptive=True while extract only a high-resolution mesh
-    export_meshes(adaptive=True)
+    export_meshes(adaptive=False)
