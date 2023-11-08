@@ -102,7 +102,6 @@ p.add_argument(
 p.add_argument(
     "--udf",
     type=bool,
-    action="store_true",
     default=False,
     help="use udf and absolute values instead of sdf",
 )
@@ -193,6 +192,7 @@ def init_dataloader(opt):
         coarse_scale=opt.coarse_scale,
         fine_scale=opt.fine_scale,
         udf=opt.udf,
+        mesh_path=opt.mesh_path,
     )
 
     dataloader = DataLoader(
