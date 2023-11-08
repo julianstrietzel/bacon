@@ -39,7 +39,7 @@ p.add_argument("--num_steps", type=int, default=20000, help="number of training 
 p.add_argument(
     "--ckpt_step", type=int, default=0, help="step at which to resume training"
 )
-p.add_argument("--gpu", type=int, default=1, help="GPU ID to use")
+p.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
 p.add_argument(
     "--seed", default=None, help="random seed for experiment reproducibility"
 )
