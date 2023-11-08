@@ -99,6 +99,13 @@ p.add_argument(
     default=1e-2,
     help="weight to apply to coarse loss samples",
 )
+p.add_argument(
+    "--udf",
+    type=bool,
+    action="store_true",
+    default=False,
+    help="use udf and absolute values instead of sdf",
+)
 
 # data i/o
 p.add_argument(
@@ -174,16 +181,12 @@ def train():
 
 def init_dataloader(opt):
     """load sdf dataloader via eikonal equation or fitting sdf directly"""
-
-    udf = False
-    if opt.experiment_name == "ff_sponza":  # TODO add this also to the config file
-        udf = True
     sdf_dataset = dataio.MeshSDF(
         opt.point_cloud_path,
         num_samples=opt.num_pts_on,
         coarse_scale=opt.coarse_scale,
         fine_scale=opt.fine_scale,
-        udf=udf,
+        udf=opt.udf,
     )
 
     dataloader = DataLoader(
