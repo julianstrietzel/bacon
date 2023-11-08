@@ -790,21 +790,18 @@ class MeshSDF(Dataset):
         points[points > 0.5] -= 1
         points[points < -0.5] += 1
 
-        if self.udf == False:
+        if self.udf:
+            df = np.abs(
+                igl.signed_distance(points, self.mesh.vertices, self.mesh.faces)[0]
+            )
+            df = df[..., None]
+        else:
             # use KDTree to get distance to surface and estimate the normal
-            print("calculating sdf")
             sdf, idx = self.kd_tree.query(points, k=3)
             avg_normal = np.mean(self.n[idx], axis=1)
             sdf = np.sum((points - self.v[idx][:, 0]) * avg_normal, axis=-1)
 
             df = sdf[..., None]
-
-        else:
-            print("calculating udf")
-            df = np.abs(
-                igl.signed_distance(points, self.mesh.vertices, self.mesh.faces)[0]
-            )
-            df = df[..., None]
 
         return points, df
 
