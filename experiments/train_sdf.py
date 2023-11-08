@@ -106,6 +106,12 @@ p.add_argument(
     default=False,
     help="use udf and absolute values instead of sdf",
 )
+p.add_argument(
+    "--mesh_path",
+    type=str,
+    default=None,
+    help="path to mesh for udf sampling has to be ply or obj format",
+)
 
 # data i/o
 p.add_argument(

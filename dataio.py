@@ -731,6 +731,7 @@ class MeshSDF(Dataset):
         coarse_scale=1e-1,
         fine_scale=1e-3,
         udf=False,
+        mesh_path=None,
     ):
         super().__init__()
         self.num_samples = num_samples
@@ -740,8 +741,17 @@ class MeshSDF(Dataset):
 
         self.load_mesh(pointcloud_path)
         self.udf = udf
-        if udf == True:
-            self.mesh = trimesh.load(pointcloud_path[:-3] + "obj", force="mesh")
+        if udf:
+            if not mesh_path:
+                raise ValueError(f"mesh_path must be specified for udf")
+            if not os.path.exists(mesh_path):
+                raise ValueError(f"mesh_path does not exist {mesh_path}")
+            if not ("obj" in mesh_path or "ply" in mesh_path):
+                raise ValueError(
+                    f"mesh_path must be .obj or .ply, currently: {mesh_path}"
+                )
+            self.mesh = trimesh.load(mesh_path, force="mesh")
+            print(f"Using udf with mesh {mesh_path}")
 
     def __len__(self):
         return 10000  # arbitrary
