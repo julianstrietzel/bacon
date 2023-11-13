@@ -274,7 +274,7 @@ def init_model(opt):
             use_sigmoid=False,
         )
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"{opt.model_type} not implemented")
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])

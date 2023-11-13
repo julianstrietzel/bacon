@@ -795,6 +795,9 @@ class MeshSDF(Dataset):
                 igl.signed_distance(points, self.mesh.vertices, self.mesh.faces)[0]
             )
             df = df[..., None]
+            # the upper code is too slow!
+            # cant we use kd_tree data structure again? init it from vertices and
+
         else:
             # use KDTree to get distance to surface and estimate the normal
             sdf, idx = self.kd_tree.query(points, k=3)

@@ -1,6 +1,5 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = str(1)
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,6 +23,7 @@ parser.add_argument("--N", type=int, default=512, help="resolution of mesh")
 parser.add_argument(
     "--output_layers", nargs="+", type=int, default=[2, 4, 6, 8], help="output layers"
 )
+parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
 
 
 def export_model(
@@ -95,7 +95,7 @@ def generate_mesh(model, N, return_sdf=False, num_outputs=4, model_name="model")
 
     # render in a batched fashion to save memory
     bsize = int(128**2)
-    for i in tqdm(range(int(N**3 / bsize))):
+    for i in tqdm(range(int(N**3 / bsize)), miniters=100):
         coords = render_coords[i * bsize : (i + 1) * bsize, :]
         out = model({"coords": coords})["model_out"]
 
@@ -249,6 +249,7 @@ def export_meshes(adaptive=True):
 
         names = ["bacon_dragon", "bacon_armadillo", "bacon_lucy", "bacon_thai"]
     for ckpt, name in tqdm(zip(ckpts, names), total=len(ckpts)):
+        print(f"Exporting {name}")
         export_model(
             ckpt,
             name,
@@ -280,6 +281,7 @@ if __name__ == "__main__":
     global exp_name, N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type
     # get arguments from arguments parser
     p = parser.parse_args()
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(p.gpu)
     model_type = p.model_type
     exp_name = p.exp_name
     N = p.N
