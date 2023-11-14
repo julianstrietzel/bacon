@@ -24,6 +24,18 @@ parser.add_argument(
     "--output_layers", nargs="+", type=int, default=[2, 4, 6, 8], help="output layers"
 )
 parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
+parser.add_argument(
+    "--float_iso_value",
+    type=float,
+    default=2.5,
+    help="float iso value for udf as a thres where a surface is considered to be close in marching cubes",
+)
+parser.add_argument(
+    "--is_udf",
+    type=bool,
+    default=False,
+    help="is udf or not, then sampling is different",
+)
 
 
 def export_model(
@@ -106,13 +118,17 @@ def generate_mesh(model, N, return_sdf=False, num_outputs=4, model_name="model")
 
         for idx, sdf in enumerate(out):
             sdf_values[idx][i * bsize : (i + 1) * bsize] = sdf.detach().cpu().numpy()
+            # explain this to me: sdf_values[idx][i * bsize : (i + 1) * bsize] = sdf.detach().cpu().numpy()
 
     if return_sdf:
         return [sdf.reshape(N, N, N) for sdf in sdf_values]
 
     for idx, sdf in enumerate(sdf_values):
         sdf = sdf.reshape(N, N, N)
-        vertices, triangles = mcubes.marching_cubes(-sdf, 0)
+        if not is_udf:
+            vertices, triangles = mcubes.marching_cubes(-sdf, 0)
+        else:  # udf
+            vertices, triangles = mcubes.marching_cubes(sdf, float_iso_value)
         mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
         mesh.vertices = (mesh.vertices / N - 0.5) + 0.5 / N
 
@@ -250,6 +266,10 @@ def export_meshes(adaptive=True):
         names = ["bacon_dragon", "bacon_armadillo", "bacon_lucy", "bacon_thai"]
     for ckpt, name in tqdm(zip(ckpts, names), total=len(ckpts)):
         print(f"Exporting {name}")
+        if not is_udf and "udf" in name:
+            print(
+                f'"udf" is in experiment name {name} is_udf is not specified. Did you mean to set is_udf=True?'
+            )
         export_model(
             ckpt,
             name,
@@ -278,7 +298,7 @@ def init_multiscale_mc():
 
 
 if __name__ == "__main__":
-    global exp_name, N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type
+    global exp_name, N, output_layers, subdiv_hashes, lowest_res, coords_list, sdf_out_list, num_outputs, model_type, float_iso_value, is_udf
     # get arguments from arguments parser
     p = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = str(p.gpu)
@@ -287,6 +307,8 @@ if __name__ == "__main__":
     N = p.N
     output_layers = p.output_layers
     num_outputs = len(output_layers)
+    float_iso_value = p.float_iso_value
+    is_udf = p.is_udf
 
     subdiv_hashes, lowest_res, coords_list, sdf_out_list = init_multiscale_mc()
 
