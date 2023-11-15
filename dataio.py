@@ -751,6 +751,7 @@ class MeshSDF(Dataset):
                     f"mesh_path must be .obj or .ply, currently: {mesh_path}"
                 )
             self.mesh = trimesh.load(mesh_path, force="mesh")
+            # TODO normalize vertices using normalize function
             print(f"Using udf with mesh {mesh_path}")
 
     def __len__(self):
@@ -794,9 +795,11 @@ class MeshSDF(Dataset):
             df = np.abs(
                 igl.signed_distance(points, self.mesh.vertices, self.mesh.faces)[0]
             )
+            # TODO normalize the mesh or make this work with xyz files
             df = df[..., None]
             # the upper code is too slow!
             # cant we use kd_tree data structure again? init it from vertices and
+            # pre-saving these values and then query it?
 
         else:
             # use KDTree to get distance to surface and estimate the normal
