@@ -15,6 +15,8 @@ from torch.utils.data import Dataset
 from torchvision.transforms import Compose, ToTensor, Resize, Lambda
 from tqdm import tqdm
 
+from sdf_sampling import surface_sampling_method_factory
+
 
 def get_mgrid(sidelen, dim=2, centered=True, include_end=False):
     """Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1."""
@@ -723,7 +725,12 @@ class MeshSDF(Dataset):
     """convert point cloud to SDF"""
 
     def __init__(
-        self, pointcloud_path, num_samples=30**3, coarse_scale=1e-1, fine_scale=1e-3
+        self,
+        pointcloud_path,
+        num_samples=30**3,
+        coarse_scale=1e-1,
+        fine_scale=1e-3,
+        opt=None,
     ):
         super().__init__()
         self.num_samples = num_samples
@@ -732,6 +739,10 @@ class MeshSDF(Dataset):
         self.fine_scale = fine_scale
 
         self.load_mesh(pointcloud_path)
+
+        self.surface_sampling_method = surface_sampling_method_factory(
+            opt.surface_sampling_method, self.v, self.n, self.kd_tree, opt
+        )
 
     def __len__(self):
         return 10000  # arbitrary
@@ -770,11 +781,7 @@ class MeshSDF(Dataset):
         points[points > 0.5] -= 1
         points[points < -0.5] += 1
 
-        # use KDTree to get distance to surface and estimate the normal
-        sdf, idx = self.kd_tree.query(points, k=3)
-        avg_normal = np.mean(self.n[idx], axis=1)
-        sdf = np.sum((points - self.v[idx][:, 0]) * avg_normal, axis=-1)
-        sdf = sdf[..., None]
+        sdf = self.surface_sampling_method(points)
 
         return points, sdf
 
