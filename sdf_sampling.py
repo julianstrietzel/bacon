@@ -35,24 +35,26 @@ def surface_sampling_method_factory(
 
         return basic_surface_sampling
 
-    sys.path.append(
-        os.path.realpath("../df_prediction_networks/training_sdf_estimators")
-    )
-    from options.inf_options import InferenceOptions
-
-    sub_model_options = InferenceOptions(upper_options.sdf_sampling_opt_path).parse()
-
     if method == "mesh_cnn":
         sys.path.append(os.path.realpath("../df_prediction_networks/MeshCNN"))
+        from df_prediction_networks import inf_options
+
+        sub_model_options = inf_options.InferenceOptions(
+            upper_options.sdf_sampling_opt_path
+        ).parse()
         from MeshCNN.data.sdf_regression_data import RegressionDataset
         from MeshCNN.data import collate_fn
         from MeshCNN.models import create_model
 
-        obj_path = upper_options.point_cloud_path.split(".")[0] + ".obj"
+        obj_path = os.path.realpath(upper_options.point_cloud_path).replace(
+            ".xyz", ".obj"
+        )
+
         if not os.path.exists(obj_path):
             raise FileNotFoundError(
                 "No obj file found for the given point cloud. "
-                "There has to be a .obj file at the same location as the .xyz file."
+                "There has to be a .obj file at the same location as the .xyz file when using MeshCNN."
+                f"Expected path: {obj_path}"
             )
         dataset = RegressionDataset(sub_model_options, path=obj_path)
         pos_encoder = dataset.positional_encoder
@@ -62,23 +64,25 @@ def surface_sampling_method_factory(
             file=obj_path,
             opt=sub_model_options,
             hold_history=False,
-            export_folder=sub_model_options.export_folder,
+            export_folder=None,
         )
         normed_edge_features = dataset.get_normed_edge_features(mesh)
         model = create_model(sub_model_options)
+        import torch
 
         def mesh_cnn_sampling(points):
             # get positional encoding
-            import torch
 
             pos_encoded_points = pos_encoder.forward(torch.from_numpy(points)).float()
+
             positional_encoded_point_repeated = np.repeat(
-                np.expand_dims(pos_encoded_points, 2), 750, axis=1
+                np.expand_dims(pos_encoded_points, 2),
+                normed_edge_features.shape[1],
+                axis=2,
             )
             batch = [
                 {
                     "mesh": mesh,
-                    "label": 0,
                     "edge_features": np.concatenate(
                         (
                             normed_edge_features,
@@ -90,7 +94,7 @@ def surface_sampling_method_factory(
                 for i in range(points.shape[0])
             ]
             batched_meta = collate_fn(batch)
-            model.set_input(batched_meta)
+            model.set_input(batched_meta, inference=True)
             with torch.no_grad():
                 sdf = model.forward().data.cpu().numpy()
             return sdf
@@ -101,7 +105,12 @@ def surface_sampling_method_factory(
         sys.path.append(
             os.path.realpath("../df_prediction_networks/training_sdf_estimators")
         )
+        from df_prediction_networks import inf_options
         from training_sdf_estimators.models import model_factory
+
+        sub_model_options = inf_options.InferenceOptions(
+            upper_options.sdf_sampling_opt_path
+        ).parse()
 
         model = model_factory(sub_model_options.model_name, sub_model_options)
         model.load_weights()
