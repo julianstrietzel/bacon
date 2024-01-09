@@ -739,7 +739,6 @@ class MeshSDF(Dataset):
         self.coarse_scale = coarse_scale
         self.fine_scale = fine_scale
 
-        self.load_mesh(pointcloud_path)
         self.udf = udf
         if udf:
             if not mesh_path:
@@ -758,9 +757,14 @@ class MeshSDF(Dataset):
         return 10000  # arbitrary
 
     def load_mesh(self, pointcloud_path):
-        pointcloud = np.genfromtxt(pointcloud_path)
-        self.v = pointcloud[:, :3]
-        self.n = pointcloud[:, 3:]
+        if "xyz" in pointcloud_path:
+            pointcloud = np.genfromtxt(pointcloud_path)
+            self.v = pointcloud[:, :3]
+            self.n = pointcloud[:, 3:]
+        else:
+            pointcloud = trimesh.load(pointcloud_path)
+            self.v = pointcloud.vertices
+            self.n = pointcloud.vertex_normals
 
         n_norm = np.linalg.norm(self.n, axis=-1)[:, None]
         n_norm[n_norm == 0] = 1.0
@@ -793,9 +797,8 @@ class MeshSDF(Dataset):
 
         if self.udf:
             df = np.abs(
-                igl.signed_distance(points, self.mesh.vertices, self.mesh.faces)[0]
+                igl.signed_distance(points, self.v, self.mesh.faces)[0]
             )
-            # TODO normalize the mesh or make this work with xyz files
             df = df[..., None]
             # the upper code is too slow!
             # cant we use kd_tree data structure again? init it from vertices and
