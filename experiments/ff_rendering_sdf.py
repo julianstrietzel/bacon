@@ -250,9 +250,14 @@ def export_meshes(adaptive=True):
 
         names = ["bacon_dragon", "bacon_armadillo", "bacon_lucy", "bacon_thai"]
     config = configparser.ConfigParser(strict=False)
+    list_dir = os.listdir("./config/sdf/")
     for ckpt, name in tqdm(zip(ckpts, names), total=len(ckpts)):
         print(f"Exporting {name}")
-        with open(f"./config/sdf/{name}.ini") as stream:
+        config_path = f"./config/sdf/{name}.ini"
+        if not os.path.exists(config_path):
+            config_path = f"./config/sdf/{sorted(filter(lambda x: x in name, map(lambda x: x.split('.')[0], list_dir)), key=lambda x: len(x), reverse=True)[0]}.ini"
+        print(f"Using config {config_path}")
+        with open(config_path) as stream:
             config.read_string("[DEFAULT]\n" + stream.read())
         export_model(
             ckpt,

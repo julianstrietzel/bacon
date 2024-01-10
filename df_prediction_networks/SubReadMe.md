@@ -15,4 +15,5 @@ df_prediction_networks
 ```
 
 Use opt.txt in this directory as placeholder to configure the submodules, that can be read by the
-[Inference Options](training_sdf_estimators/options/inf_options.py) in training sdf estimators
+[Inference Options](inf_options.py). Therefore, you need to replace the placeholders with the opt.txt print out of the
+model configuration you want to use and place everything else in the checkpoints_directory of the repo.

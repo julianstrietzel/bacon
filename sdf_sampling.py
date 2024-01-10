@@ -21,18 +21,17 @@ def surface_sampling_method_factory(
     :param upper_options: The options object of the upper level model (in distinction to the sub model options)
     """
 
+    def basic_surface_sampling(points):
+        # Use KdTree to find the nearest neighbors
+        _, idx = kdtree.query(points, k=3)
+        # Average the normals of the neighbors
+        avg_normal = np.mean(normals[idx], axis=1)
+        # Sum over dot product
+        sdf = np.sum((points - vectors[idx][:, 0]) * avg_normal, axis=-1)
+        sdf = sdf[..., None]
+        return sdf
+
     if method == "basic" or not method:
-
-        def basic_surface_sampling(points):
-            # Use KdTree to find the nearest neighbors
-            _, idx = kdtree.query(points, k=3)
-            # Average the normals of the neighbors
-            avg_normal = np.mean(normals[idx], axis=1)
-            # Sum over dot product
-            sdf = np.sum((points - vectors[idx][:, 0]) * avg_normal, axis=-1)
-            sdf = sdf[..., None]
-            return sdf
-
         return basic_surface_sampling
 
     if method == "mesh_cnn":
@@ -43,7 +42,6 @@ def surface_sampling_method_factory(
             upper_options.sdf_sampling_opt_path
         ).parse()
         from MeshCNN.data.sdf_regression_data import RegressionDataset
-        from MeshCNN.data import collate_fn
         from MeshCNN.models import create_model
 
         obj_path = os.path.realpath(upper_options.point_cloud_path).replace(
@@ -68,48 +66,49 @@ def surface_sampling_method_factory(
         )
         normed_edge_features = dataset.get_normed_edge_features(mesh)
         model = create_model(sub_model_options)
+
+        batched_mesh = np.array([mesh] * upper_options.num_pts_on)
+        normed_edge_features_batched = np.repeat(
+            np.expand_dims(normed_edge_features, 0), upper_options.num_pts_on, axis=0
+        )
         import torch
 
+        normed_edge_features_batched = torch.from_numpy(
+            normed_edge_features_batched
+        ).float()
+
         def mesh_cnn_sampling(points):
-            # get positional encoding
-
             pos_encoded_points = pos_encoder.forward(torch.from_numpy(points)).float()
-
-            positional_encoded_point_repeated = np.repeat(
-                np.expand_dims(pos_encoded_points, 2),
-                normed_edge_features.shape[1],
-                axis=2,
+            expanded_pos_encoded_points = torch.unsqueeze(pos_encoded_points, 2)
+            positional_encoded_point_repeated = expanded_pos_encoded_points.repeat(
+                1, 1, normed_edge_features.shape[1]
             )
-            batch = [
-                {
-                    "mesh": mesh,
-                    "edge_features": np.concatenate(
-                        (
-                            normed_edge_features,
-                            positional_encoded_point_repeated[i, ...],
-                        ),
-                        axis=0,
-                    ),
-                }
-                for i in range(points.shape[0])
-            ]
-            batched_meta = collate_fn(batch)
+            all_edge_features = torch.cat(
+                (normed_edge_features_batched, positional_encoded_point_repeated),
+                dim=1,
+            )
+            batched_meta = {
+                "mesh": batched_mesh,
+                "edge_features": all_edge_features,
+            }
             model.set_input(batched_meta, inference=True)
             with torch.no_grad():
                 sdf = model.forward().data.cpu().numpy()
+            # for debugging purposes: np.mean(np.abs(sdf, sdf_simple)) should not be significantly different from test mae
+            sdf_simple = basic_surface_sampling(points)
             return sdf
 
         return mesh_cnn_sampling
-
     if method == "sdf_network":
         sys.path.append(
             os.path.realpath("../df_prediction_networks/training_sdf_estimators")
         )
         from df_prediction_networks import inf_options
         from training_sdf_estimators.models import model_factory
+        import torch
 
         sub_model_options = inf_options.InferenceOptions(
-            upper_options.sdf_sampling_opt_path
+            upper_options.sdf_sampling_opt_path, "training_sdf_estimators"
         ).parse()
 
         model = model_factory(sub_model_options.model_name, sub_model_options)
@@ -133,7 +132,9 @@ def surface_sampling_method_factory(
                     (relative_batch, normals_batch), axis=2
                 ).T.astype("float32")
             model_output = model(model_input)
-            sdf = model_output.detach().numpy()[..., None]
+            sdf = model_output.detach().numpy()
+            sdf_simple = basic_surface_sampling(points)
+
             return sdf
 
         return sdf_network_surface_sampling
