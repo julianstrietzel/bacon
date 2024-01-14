@@ -731,6 +731,9 @@ class MeshSDF(Dataset):
         coarse_scale=1e-1,
         fine_scale=1e-3,
         opt=None,
+        debug_mcubes=False,
+        debug_mcubes_resolution=128,
+        part_to_sample=1,
     ):
         super().__init__()
         self.num_samples = num_samples
@@ -738,14 +741,31 @@ class MeshSDF(Dataset):
         self.coarse_scale = coarse_scale
         self.fine_scale = fine_scale
 
+        self.debug_mcubes = debug_mcubes
+        self.debug_mcubes_resolution = debug_mcubes_resolution
+
         self.load_mesh(pointcloud_path)
 
         self.surface_sampling_method = surface_sampling_method_factory(
             opt.surface_sampling_method, self.v, self.n, self.kd_tree, opt
         )
+        if debug_mcubes:
+            x, y, z = np.meshgrid(
+                np.linspace(-part_to_sample, part_to_sample, debug_mcubes_resolution),
+                np.linspace(-part_to_sample, part_to_sample, debug_mcubes_resolution),
+                np.linspace(-part_to_sample, part_to_sample, debug_mcubes_resolution),
+            )
+
+            # Flatten the grid to pass to the sampling function
+            self.mcubes_points = np.column_stack([x.ravel(), y.ravel(), z.ravel()])
+            self.i = 0
 
     def __len__(self):
-        return 10000  # arbitrary
+        return (
+            10000  # arbitrary
+            if not self.debug_mcubes
+            else (self.debug_mcubes_resolution**3) // self.num_samples
+        )
 
     def load_mesh(self, pointcloud_path):
         pointcloud = np.genfromtxt(pointcloud_path)
@@ -767,26 +787,28 @@ class MeshSDF(Dataset):
         coords -= 0.45
         return coords
 
-    def sample_surface(self):
-        idx = np.random.randint(0, self.v.shape[0], self.num_samples)
-        points = self.v[idx]
-        points[::2] += np.random.laplace(
-            scale=self.coarse_scale, size=(points.shape[0] // 2, points.shape[-1])
-        )
-        points[1::2] += np.random.laplace(
-            scale=self.fine_scale, size=(points.shape[0] // 2, points.shape[-1])
-        )
+    def sample_surface(self, idx=None):
+        if not self.debug_mcubes:
+            idx = np.random.randint(0, self.v.shape[0], self.num_samples)
+            points = self.v[idx]
+            points[::2] += np.random.laplace(
+                scale=self.coarse_scale, size=(points.shape[0] // 2, points.shape[-1])
+            )
+            points[1::2] += np.random.laplace(
+                scale=self.fine_scale, size=(points.shape[0] // 2, points.shape[-1])
+            )
 
-        # wrap around any points that are sampled out of bounds
-        points[points > 0.5] -= 1
-        points[points < -0.5] += 1
-
+            # wrap around any points that are sampled out of bounds
+            points[points > 0.5] -= 1
+            points[points < -0.5] += 1
+        else:
+            points = self.mcubes_points[idx : idx + self.num_samples]
         sdf = self.surface_sampling_method(points)
 
         return points, sdf
 
     def __getitem__(self, idx):
-        coords, sdf = self.sample_surface()
+        coords, sdf = self.sample_surface(idx * self.num_samples)
 
         return {"coords": torch.from_numpy(coords).float()}, {
             "sdf": torch.from_numpy(sdf).float()
