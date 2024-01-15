@@ -7,6 +7,7 @@ import mcubes
 import numpy as np
 import torch
 import trimesh
+from torch import multiprocessing
 from tqdm import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -202,5 +203,7 @@ def render_mcubes_mesh(grid_size=128):
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("spawn")
+
     for grid_size in (64, 128):
         render_mcubes_mesh(grid_size=grid_size)

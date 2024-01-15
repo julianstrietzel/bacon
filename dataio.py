@@ -743,8 +743,9 @@ class MeshSDF(Dataset):
 
         self.debug_mcubes = debug_mcubes
         self.debug_mcubes_resolution = debug_mcubes_resolution
-
-        self.load_mesh(pointcloud_path)
+        self.v, self.n, self.kd_tree = None, None, None
+        if not debug_mcubes:
+            self.load_mesh(pointcloud_path)
 
         self.surface_sampling_method = surface_sampling_method_factory(
             opt.surface_sampling_method, self.v, self.n, self.kd_tree, opt
