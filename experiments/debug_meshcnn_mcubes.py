@@ -197,13 +197,16 @@ def render_mcubes_mesh(grid_size=128):
 
     # Export the mesh
     os.makedirs("./outputs/direct_meshes", exist_ok=True)
-    filename = f"./outputs/direct_meshes/{opt.experiment_name}_{grid_size}_{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime())}.obj"
+    filename = (
+        f"./outputs/direct_meshes/{os.path.basename(opt.point_cloud_path)}_{opt.experiment_name}_"
+        f"{opt.surface_sampling_method}_{grid_size}_{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime())}.obj"
+    )
     mesh.export(filename)
     print(f"Exported mesh to {filename}")
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
+    # multiprocessing.set_start_method("spawn")
 
-    for grid_size in (64, 128):
+    for grid_size in [64, 128, 512]:
         render_mcubes_mesh(grid_size=grid_size)
