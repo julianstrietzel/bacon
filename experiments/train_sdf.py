@@ -136,9 +136,19 @@ p.add_argument(
 p.add_argument(
     "--surface_sampling_method",
     type=str,
-    default="basic",
+    default="",
+    help="path to precomputed meshCNN",
+)
+p.add_argument(
+    "--precompute_path",
+    type=str,
+    default="None",
     help="method to use for surface sampling during training from [basic, sdf_network, mesh_cnn]",
 )
+p.add_argument(
+    "--precompute", action="store_true", default=False, help="precompute meshcnn"
+)
+
 
 opt = p.parse_args()
 
