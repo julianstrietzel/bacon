@@ -64,27 +64,25 @@ def surface_sampling_method_factory(
             hold_history=False,
             export_folder=None,
         )
-        normed_edge_features = dataset.get_normed_edge_features(mesh)
+        edge_features = dataset.get_edge_features(mesh)
         model = create_model(sub_model_options)
 
         batched_mesh = np.array([mesh] * upper_options.num_pts_on)
-        normed_edge_features_batched = np.repeat(
-            np.expand_dims(normed_edge_features, 0), upper_options.num_pts_on, axis=0
+        edge_features_batched = np.repeat(
+            np.expand_dims(edge_features, 0), upper_options.num_pts_on, axis=0
         )
         import torch
 
-        normed_edge_features_batched = torch.from_numpy(
-            normed_edge_features_batched
-        ).float()
+        edge_features_batched = torch.from_numpy(edge_features_batched).float()
 
         def mesh_cnn_sampling(points):
             pos_encoded_points = pos_encoder.forward(torch.from_numpy(points)).float()
             expanded_pos_encoded_points = torch.unsqueeze(pos_encoded_points, 2)
             positional_encoded_point_repeated = expanded_pos_encoded_points.repeat(
-                1, 1, normed_edge_features.shape[1]
+                1, 1, edge_features.shape[1]
             )
             all_edge_features = torch.cat(
-                (normed_edge_features_batched, positional_encoded_point_repeated),
+                (edge_features_batched, positional_encoded_point_repeated),
                 dim=1,
             )
             batched_meta = {
@@ -98,9 +96,7 @@ def surface_sampling_method_factory(
             # sdf_simple = basic_surface_sampling(points)
             return sdf
 
-        return MeshCNNSampler(
-            pos_encoder, normed_edge_features_batched, batched_mesh, model
-        )
+        return mesh_cnn_sampling
     if method == "sdf_network":
         sys.path.append(
             os.path.realpath("../df_prediction_networks/training_sdf_estimators")

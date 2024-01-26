@@ -1,4 +1,5 @@
 import os
+import warnings
 from argparse import Namespace
 
 import torch
@@ -33,7 +34,7 @@ class InferenceOptions(BaseOptions):
             elif opt_id == "gpu_ids":
                 gpu_id = int(os.environ["CUDA_VISIBLE_DEVICES"])
                 if any(x != gpu_id for x in convert(x[1].strip())):
-                    raise Warning(
+                    warnings.warn(
                         "gpu_ids in inner options set to different gpu than current gpu might cause errors"
                     )
             setattr(self.opt, opt_id, convert(x[1].strip()))

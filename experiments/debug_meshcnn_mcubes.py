@@ -208,5 +208,5 @@ def render_mcubes_mesh(grid_size=128):
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
 
-    for grid_size in [64, 128, 512]:
+    for grid_size in [64, 128]:
         render_mcubes_mesh(grid_size=grid_size)
