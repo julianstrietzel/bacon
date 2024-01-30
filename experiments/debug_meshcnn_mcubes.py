@@ -191,10 +191,9 @@ def render_mcubes_mesh(grid_size=128):
     print("sampled")
     # Step 4: Pass the 3D array of SDF values to the Marching Cubes algorithm
     vertices, triangles = mcubes.marching_cubes(-sdf_values_3d, 0)
-
     # Create a trimesh object and adjust the vertices
-    mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
-
+    # points = (points - np.min(points)) / (np.max(points) - np.min(points)) - 0.5
+    mesh = trimesh.Trimesh(vertices=vertices / grid_size - 0.5, faces=triangles)
     # Export the mesh
     os.makedirs("./outputs/direct_meshes", exist_ok=True)
     filename = (
@@ -208,5 +207,5 @@ def render_mcubes_mesh(grid_size=128):
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
 
-    for grid_size in [64, 128]:
+    for grid_size in [128]:
         render_mcubes_mesh(grid_size=grid_size)
