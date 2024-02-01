@@ -41,6 +41,15 @@ def surface_sampling_method_factory(
         sub_model_options = inf_options.InferenceOptions(
             upper_options.sdf_sampling_opt_path
         ).parse()
+
+        try:
+            sub_model_options.relu_deactivated is False
+        except:
+            sub_model_options.relu_deactivated = False
+        #ablation_id = upper_options.experiment_name.split("_")[0]
+        #sub_model_options.expr_dir = sub_model_options.expr_dir.replace("checkpoints/", "ablations/" + ablation_id + "_")
+        sub_model_options.gpu_ids = [upper_options.gpu]
+
         from MeshCNN.data.sdf_regression_data import RegressionDataset
         from MeshCNN.models import create_model
 

@@ -173,11 +173,13 @@ def main():
     )
     coords = []
     sdfs = []
-    for i in range(2499):
+    for i in range(10000):
         c, s = sdf_dataset[0]
         coords += c['coords']
         sdfs += s['sdf']
-        print(i * 200, " points done")
+        if i % 500 == 0:
+            print((i + 1) * opt.num_pts_on, " points done")
+
     precomps = {"coords": np.stack(coords), "sdfs": np.stack(sdfs)}
     with open(opt.precompute_path, "wb") as f:
         pickle.dump(precomps, f)

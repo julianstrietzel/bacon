@@ -802,6 +802,7 @@ class MeshSDF(Dataset):
     def sample_surface(self, idx=None):
         if self.precompute:
             # Maybe write another script for precomputing
+            self.point_idx = self.point_idx % (self.v.shape[0] - self.num_samples - 1)
             idx = np.array(range(self.point_idx, self.point_idx + self.num_samples))
             self.point_idx += self.num_samples
             points = self.v[idx]

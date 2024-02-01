@@ -144,8 +144,9 @@ p.add_argument(
 
 opt = p.parse_args()
 
+opt.precompute_path = None
+opt.precompute = False
 os.environ["CUDA_VISIBLE_DEVICES"] = str(opt.gpu)
-
 
 def init_dataloader(opt, grid_size=128):
     """load sdf dataloader via eikonal equation or fitting sdf directly"""
