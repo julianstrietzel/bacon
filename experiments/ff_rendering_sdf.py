@@ -1,5 +1,5 @@
+import configparser
 import os
-
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -61,8 +61,8 @@ def export_model(
             nl="relu",
             in_features=3,
             out_features=1,
-            num_hidden_layers=7,
-            hidden_features=256,
+            num_hidden_layers=hidden_layers,
+            hidden_features=hidden_size,
             is_sdf=True,
             pe_scale=8.0,
             use_sigmoid=False,
@@ -238,6 +238,7 @@ def export_meshes(adaptive=True):
             str(os.path.join("../ff_trained_models", os.fsdecode(name)))
             for name in names
         ]
+        names = map(lambda x: x.split("/")[-1].split(".")[0], ckpts)
     else:
         print("Exporting BACON")
         ckpts = [
@@ -248,13 +249,23 @@ def export_meshes(adaptive=True):
         ]
 
         names = ["bacon_dragon", "bacon_armadillo", "bacon_lucy", "bacon_thai"]
+    config = configparser.ConfigParser(strict=False)
+    list_dir = os.listdir("./config/sdf/")
     for ckpt, name in tqdm(zip(ckpts, names), total=len(ckpts)):
         print(f"Exporting {name}")
+        config_path = f"./config/sdf/{name}.ini"
+        if not os.path.exists(config_path):
+            config_path = f"./config/sdf/{sorted(filter(lambda x: x in name, map(lambda x: x.split('.')[0], list_dir)), key=lambda x: len(x), reverse=True)[0]}.ini"
+        print(f"Using config {config_path}")
+        with open(config_path) as stream:
+            config.read_string("[DEFAULT]\n" + stream.read())
         export_model(
             ckpt,
             name,
-            model_type=model_type,
+            model_type=config.get("DEFAULT", "model_type"),
             output_layers=output_layers,
+            hidden_layers=int(config.get("DEFAULT", "hidden_layers")),
+            hidden_size=int(config.get("DEFAULT", "hidden_size")),
             adaptive=adaptive,
         )
 

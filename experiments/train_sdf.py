@@ -125,6 +125,30 @@ p.add_argument(
     default=1000,
     help="epoch frequency to update tensorboard summary",
 )
+# sdf_sampling_opt_path
+p.add_argument(
+    "--sdf_sampling_opt_path",
+    type=str,
+    default="./sdf_sampling_opt.txt",
+    help="path to options file for submodels called for sdf sampling during training",
+)
+# surface_sampling_method
+p.add_argument(
+    "--surface_sampling_method",
+    type=str,
+    default="",
+    help="path to precomputed meshCNN",
+)
+p.add_argument(
+    "--precompute_path",
+    type=str,
+    default="None",
+    help="method to use for surface sampling during training from [basic, sdf_network, mesh_cnn]",
+)
+p.add_argument(
+    "--precompute", action="store_true", default=False, help="precompute meshcnn"
+)
+
 
 opt = p.parse_args()
 
@@ -180,6 +204,7 @@ def init_dataloader(opt):
         num_samples=opt.num_pts_on,
         coarse_scale=opt.coarse_scale,
         fine_scale=opt.fine_scale,
+        opt=opt,
     )
 
     dataloader = DataLoader(

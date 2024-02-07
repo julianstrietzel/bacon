@@ -6,3 +6,5 @@
 /logs_persis/
 /experiments/outputs/
 .DS_Store
+/df_prediction_networks/
+*.pyc

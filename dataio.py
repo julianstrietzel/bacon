@@ -1,6 +1,7 @@
 import errno
 import json
 import os
+import pickle
 import re
 import urllib.request
 
@@ -14,6 +15,8 @@ from pykdtree.kdtree import KDTree
 from torch.utils.data import Dataset
 from torchvision.transforms import Compose, ToTensor, Resize, Lambda
 from tqdm import tqdm
+
+from sdf_sampling import surface_sampling_method_factory
 
 
 def get_mgrid(sidelen, dim=2, centered=True, include_end=False):
@@ -97,9 +100,9 @@ def rect(coords, width=1):
 
 def gaussian(coords, sigma=1, center=0.5):
     return (
-        1
-        / (sigma * math.sqrt(2 * np.pi))
-        * torch.exp(-((coords - center) ** 2) / (2 * sigma**2))
+            1
+            / (sigma * math.sqrt(2 * np.pi))
+            * torch.exp(-((coords - center) ** 2) / (2 * sigma ** 2))
     )
 
 
@@ -111,11 +114,11 @@ def sines1(coords):
 
 def polynomial_1(coords):
     return (
-        0.1 * ((coords + 0.2) * 3) ** 5
-        - 0.2 * ((coords + 0.2) * 3) ** 4
-        + 0.2 * ((coords + 0.2) * 3) ** 3
-        - 0.4 * ((coords + 0.2) * 3) ** 2
-        + 0.1 * ((coords + 0.2) * 3)
+            0.1 * ((coords + 0.2) * 3) ** 5
+            - 0.2 * ((coords + 0.2) * 3) ** 4
+            + 0.2 * ((coords + 0.2) * 3) ** 3
+            - 0.4 * ((coords + 0.2) * 3) ** 2
+            + 0.1 * ((coords + 0.2) * 3)
     )
 
 
@@ -134,13 +137,13 @@ def xcosx(coords):
 
 class ImageWrapper(torch.utils.data.Dataset):
     def __init__(
-        self,
-        dataset,
-        compute_diff="all",
-        centered=True,
-        include_end=False,
-        multiscale=False,
-        stages=3,
+            self,
+            dataset,
+            compute_diff="all",
+            centered=True,
+            include_end=False,
+            multiscale=False,
+            stages=3,
     ):
         self.compute_diff = compute_diff
         self.centered = centered
@@ -159,7 +162,7 @@ class ImageWrapper(torch.utils.data.Dataset):
         # sample pixel centers
         self.mgrid = self.mgrid + 1 / (2 * self.dataset.resolution[0])
         self.radii = 1 / self.dataset.resolution[0] * 2 / np.sqrt(12)
-        self.radii = [(self.radii * 2**i).astype(np.float32) for i in range(3)]
+        self.radii = [(self.radii * 2 ** i).astype(np.float32) for i in range(3)]
         self.radii.reverse()
 
         img = self.transform(self.dataset[0])
@@ -173,7 +176,7 @@ class ImageWrapper(torch.utils.data.Dataset):
         img = img.permute(1, 2, 0).numpy()
         for i in range(stages):
             tmp = skimage.transform.resize(
-                img, [s // 2**i for s in (self.rows, self.cols)]
+                img, [s // 2 ** i for s in (self.rows, self.cols)]
             )
             tmp = skimage.transform.resize(tmp, (self.rows, self.cols))
             self.imgs.append(torch.from_numpy(tmp).view(-1, self.dataset.img_channels))
@@ -219,13 +222,13 @@ def crop_max_square(pil_img):
 
 class ImageFile(Dataset):
     def __init__(
-        self,
-        filename,
-        grayscale=False,
-        resolution=None,
-        root_path=None,
-        crop_square=True,
-        url=None,
+            self,
+            filename,
+            grayscale=False,
+            resolution=None,
+            root_path=None,
+            crop_square=True,
+            url=None,
     ):
         super().__init__()
 
@@ -266,7 +269,7 @@ class ImageFile(Dataset):
 
 
 def chunk_lists_from_batch_reduce_to_raysamples_fn(
-    model_input, meta, gt, max_chunk_size
+        model_input, meta, gt, max_chunk_size
 ):
     model_in_chunked = []
     for key in model_input:
@@ -317,19 +320,19 @@ def chunk_lists_from_batch_reduce_to_raysamples_fn(
 
 class NerfBlenderDataset(torch.utils.data.Dataset):
     def __init__(
-        self,
-        basedir,
-        mode="train",
-        splits=["train", "val", "test"],
-        select_idx=None,
-        testskip=1,
-        resize_to=None,
-        final_render=False,
-        d_rot=0,
-        bounds=((-2, 2), (-2, 2), (0, 2)),
-        multiscale=False,
-        black_background=False,
-        override_scale=None,
+            self,
+            basedir,
+            mode="train",
+            splits=["train", "val", "test"],
+            select_idx=None,
+            testskip=1,
+            resize_to=None,
+            final_render=False,
+            d_rot=0,
+            bounds=((-2, 2), (-2, 2), (0, 2)),
+            multiscale=False,
+            black_background=False,
+            override_scale=None,
     ):
         self.mode = mode
         self.basedir = basedir
@@ -432,10 +435,10 @@ class NerfBlenderDataset(torch.utils.data.Dataset):
             if self.multiscale:
                 for i in range(4):
                     fname = (
-                        os.path.join(self.basedir, frame["file_path"]).replace(
-                            s, s + "_multiscale"
-                        )
-                        + f"_d{i}.png"
+                            os.path.join(self.basedir, frame["file_path"]).replace(
+                                s, s + "_multiscale"
+                            )
+                            + f"_d{i}.png"
                     )
                     load_image(fname)
 
@@ -446,7 +449,7 @@ class NerfBlenderDataset(torch.utils.data.Dataset):
         if self.multiscale:
             poses = poses[::4]
             self.multiscale_imgs = [
-                imgs[i : i + 4][::-1] for i in range(0, len(imgs), 4)
+                imgs[i: i + 4][::-1] for i in range(0, len(imgs), 4)
             ]
             imgs = imgs[::4]
 
@@ -513,16 +516,16 @@ class NerfBlenderDataset(torch.utils.data.Dataset):
 
 class Implicit6DMultiviewDataWrapper(torch.utils.data.Dataset):
     def __init__(
-        self,
-        dataset,
-        img_shape,
-        camera_params,
-        samples_per_ray=128,
-        samples_per_view=32000,
-        num_workers=4,
-        multiscale=False,
-        supervise_hr=False,
-        scales=[1 / 8, 1 / 4, 1 / 2, 1],
+            self,
+            dataset,
+            img_shape,
+            camera_params,
+            samples_per_ray=128,
+            samples_per_view=32000,
+            num_workers=4,
+            multiscale=False,
+            supervise_hr=False,
+            scales=[1 / 8, 1 / 4, 1 / 2, 1],
     ):
         self.dataset = dataset
         self.num_workers = num_workers
@@ -644,8 +647,8 @@ class Implicit6DMultiviewDataWrapper(torch.utils.data.Dataset):
 
     def get_rays(self, idx):
         idxs = self.shuffle_idxs[
-            self.samples_per_view * idx : self.samples_per_view * (idx + 1)
-        ]
+               self.samples_per_view * idx: self.samples_per_view * (idx + 1)
+               ]
         ray_dirs = self.all_ray_dirs.view(-1, 3)[idxs, ...]
         ray_orgs = self.all_ray_orgs.view(-1, 3)[idxs, ...]
 
@@ -723,7 +726,16 @@ class MeshSDF(Dataset):
     """convert point cloud to SDF"""
 
     def __init__(
-        self, pointcloud_path, num_samples=30**3, coarse_scale=1e-1, fine_scale=1e-3
+            self,
+            pointcloud_path,
+            num_samples=30 ** 3,
+            coarse_scale=1e-1,
+            fine_scale=1e-3,
+            opt=None,
+            debug_mcubes=False,
+            debug_mcubes_resolution=128,
+            part_to_sample=1,
+            precompute_path=None
     ):
         super().__init__()
         self.num_samples = num_samples
@@ -731,10 +743,41 @@ class MeshSDF(Dataset):
         self.coarse_scale = coarse_scale
         self.fine_scale = fine_scale
 
+        self.debug_mcubes = debug_mcubes
+        self.debug_mcubes_resolution = debug_mcubes_resolution
+        self.v, self.n, self.kd_tree = None, None, None
         self.load_mesh(pointcloud_path)
 
+        self.precompute_path = opt.precompute_path
+        self.precompute = opt.precompute
+        self.point_idx = 0
+
+        if self.precompute_path is not None and not self.precompute:
+            with open(self.precompute_path, "rb") as f:
+                precomputed_values = pickle.load(f)
+                self.precomputed_sdfs = np.stack(precomputed_values['sdfs'])
+                self.precomputed_points = np.stack(precomputed_values['coords'])
+
+        self.surface_sampling_method = surface_sampling_method_factory(
+            opt.surface_sampling_method, self.v, self.n, self.kd_tree, opt
+        )
+        if debug_mcubes:
+            x, y, z = np.meshgrid(
+                np.linspace(-part_to_sample, part_to_sample, debug_mcubes_resolution),
+                np.linspace(-part_to_sample, part_to_sample, debug_mcubes_resolution),
+                np.linspace(-part_to_sample, part_to_sample, debug_mcubes_resolution),
+            )
+
+            # Flatten the grid to pass to the sampling function
+            self.mcubes_points = np.column_stack([x.ravel(), y.ravel(), z.ravel()])
+            self.i = 0
+
     def __len__(self):
-        return 10000  # arbitrary
+        return (
+            10000  # arbitrary
+            if not self.debug_mcubes
+            else (self.debug_mcubes_resolution ** 3) // self.num_samples
+        )
 
     def load_mesh(self, pointcloud_path):
         pointcloud = np.genfromtxt(pointcloud_path)
@@ -756,30 +799,51 @@ class MeshSDF(Dataset):
         coords -= 0.45
         return coords
 
-    def sample_surface(self):
-        idx = np.random.randint(0, self.v.shape[0], self.num_samples)
-        points = self.v[idx]
-        points[::2] += np.random.laplace(
-            scale=self.coarse_scale, size=(points.shape[0] // 2, points.shape[-1])
-        )
-        points[1::2] += np.random.laplace(
-            scale=self.fine_scale, size=(points.shape[0] // 2, points.shape[-1])
-        )
+    def sample_surface(self, idx=None):
+        if self.precompute:
+            # Maybe write another script for precomputing
+            self.point_idx = self.point_idx % (self.v.shape[0] - self.num_samples - 1)
+            idx = np.array(range(self.point_idx, self.point_idx + self.num_samples))
+            self.point_idx += self.num_samples
+            points = self.v[idx]
+            points[::2] += np.random.laplace(
+                scale=self.coarse_scale, size=(points.shape[0] // 2, points.shape[-1])
+            )
+            points[1::2] += np.random.laplace(
+                scale=self.fine_scale, size=(points.shape[0] // 2, points.shape[-1])
+            )
 
-        # wrap around any points that are sampled out of bounds
-        points[points > 0.5] -= 1
-        points[points < -0.5] += 1
+            # wrap around any points that are sampled out of bounds
+            points[points > 0.5] -= 1
+            points[points < -0.5] += 1
 
-        # use KDTree to get distance to surface and estimate the normal
-        sdf, idx = self.kd_tree.query(points, k=3)
-        avg_normal = np.mean(self.n[idx], axis=1)
-        sdf = np.sum((points - self.v[idx][:, 0]) * avg_normal, axis=-1)
-        sdf = sdf[..., None]
+        elif self.precompute_path is not None:
+            idx = np.random.randint(0, len(self.precomputed_sdfs), self.num_samples)
+            points = self.precomputed_points[idx]
+            sdf = self.precomputed_sdfs[idx]
+            return points, sdf
+
+        elif not self.debug_mcubes:
+            idx = np.random.randint(0, self.v.shape[0], self.num_samples)
+            points = self.v[idx]
+            points[::2] += np.random.laplace(
+                scale=self.coarse_scale, size=(points.shape[0] // 2, points.shape[-1])
+            )
+            points[1::2] += np.random.laplace(
+                scale=self.fine_scale, size=(points.shape[0] // 2, points.shape[-1])
+            )
+
+            # wrap around any points that are sampled out of bounds
+            points[points > 0.5] -= 1
+            points[points < -0.5] += 1
+        else:
+            points = self.mcubes_points[idx: idx + self.num_samples]
+        sdf = self.surface_sampling_method(points)
 
         return points, sdf
 
     def __getitem__(self, idx):
-        coords, sdf = self.sample_surface()
+        coords, sdf = self.sample_surface(idx * self.num_samples)
 
         return {"coords": torch.from_numpy(coords).float()}, {
             "sdf": torch.from_numpy(sdf).float()
